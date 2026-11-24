@@ -45,26 +45,6 @@ opencode plugin add "github:perminovsi/opencode-selectel-models#semver:^1.0.0"
 
 Дополнительная опция `metadataAliases` описана в разделе «Правила обновления».
 
-## Разработка
-
-Для работы с локальной копией установите зависимости и проверьте проект:
-
-```sh
-npm ci --ignore-scripts
-npm test
-npm run typecheck
-```
-
-Чтобы OpenCode загружал локальную копию вместо опубликованной, укажите путь в `opencode.json`:
-
-```jsonc
-{
-  "plugins": ["/path/to/opencode-selectel-models"]
-}
-```
-
-`@opencode/plugin` предоставляет сам OpenCode во время загрузки, поэтому в обычной установке он не нужен.
-
 ## Использование
 
 - `/selectel-models-update` — немедленно запросить оба источника и обновить каталог.
@@ -111,3 +91,23 @@ opencode api post /api/rpc/selectel-models/status \
 ```
 
 Если метаданных для ID с суффиксом OpenRouter `:exacto` или `:extended` нет, берутся данные базового ID без суффикса. Встроены точные соответствия для `reka/reka-edge`, `sakana/namazu`, `selectel/deepseek-v4-flash`, `selectel/glm-5.3-flash` и `selectel/qwen3.8-27b`. Похожие названия семейств автоматически не сопоставляются.
+
+## Разработка
+
+Для работы с локальной копией установите зависимости и проверьте проект:
+
+```sh
+npm ci --ignore-scripts
+npm test
+npm run typecheck
+```
+
+Чтобы OpenCode загружал локальную копию вместо опубликованной, укажите путь в `opencode.json`:
+
+```jsonc
+{
+  "plugins": ["/path/to/opencode-selectel-models"]
+}
+```
+
+`@opencode/plugin` предоставляет сам OpenCode во время загрузки, поэтому в обычной установке он не нужен.
