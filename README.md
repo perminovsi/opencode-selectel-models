@@ -7,6 +7,31 @@
 - `https://api.selectel.ru/aig/v1/models` — наличие моделей, имена, цены, лимиты, модальности и поддержка инструментов.
 - `https://github.com/anomalyco/models.dev/tree/dev/providers/openrouter/models` — поддержка reasoning, уровни effort и возможность отключения. Плагин загружает архив ветки `dev` с `codeload.github.com`, читает только TOML из этого каталога и использует ETag для повторных проверок.
 
+## Требования
+
+- OpenCode 2.2 или новее.
+- Провайдеры `selectel` и `selectel-anthropic` объявлены в `opencode.json`. ID провайдеров фиксированы, переименовать их нельзя:
+
+```jsonc
+{
+  "providers": {
+    "selectel": {
+      "package": "@opencode/ai/providers/openai-compatible",
+      "name": "Selectel",
+      "settings": { "baseURL": "https://api.selectel.ru/aig/v1" }
+    },
+    "selectel-anthropic": {
+      "package": "@opencode/ai/providers/anthropic-compatible",
+      "name": "Selectel — Anthropic",
+      "settings": { "baseURL": "https://api.selectel.ru/aig/v1" }
+    }
+  }
+}
+```
+
+- Для каждого провайдера выполнена команда `/connect` с API-ключом Selectel. Ключи из `settings.apiKey` плагин не читает. Без подключения провайдер пропускается, и статус показывает подсказку `/connect`.
+- Доступ в интернет к `api.selectel.ru` и `codeload.github.com` (для метаданных models.dev).
+
 ## Установка
 
 ```sh
