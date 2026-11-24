@@ -22,5 +22,14 @@ export function formatStatus(status: Status): string {
 }
 
 function formatTime(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, { timeZoneName: "short" });
+  return new Date(iso).toLocaleString("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+    timeZoneName: "short",
+  });
 }
