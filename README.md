@@ -7,15 +7,23 @@
 - `https://api.selectel.ru/aig/v1/models` — наличие моделей, имена, цены, лимиты, модальности и поддержка инструментов.
 - `https://github.com/anomalyco/models.dev/tree/dev/providers/openrouter/models` — поддержка reasoning, уровни effort и возможность отключения. Плагин загружает архив ветки `dev` с `codeload.github.com`, читает только TOML из этого каталога и использует ETag для повторных проверок.
 
-## Подключение
+## Установка
 
-Подключение и серверные параметры задаются в `~/.config/opencode/opencode.json`. OpenCode автоматически передаёт TUI-часть подключённого плагина в CLI; отдельная запись в `cli.json` не требуется.
+```sh
+opencode plugin add "github:perminovsi/opencode-selectel-models#semver:^1.0.0"
+```
+
+Команда добавляет плагин в глобальный `~/.config/opencode/opencode.json`. Диапазон `semver:^1.0.0` означает, что OpenCode сам проверяет обновления при старте и раз в 24 часа и ставит новые версии 1.x. Проверить и обновить вручную можно командами `opencode plugin check` и `opencode plugin update`.
+
+OpenCode автоматически передаёт TUI-часть подключённого плагина в CLI; отдельная запись в `cli.json` не требуется.
+
+Параметры плагина задаются в записи `plugins` в `opencode.json`:
 
 ```jsonc
 {
   "plugins": [
     {
-      "package": "./plugins/selectel-models",
+      "package": "github:perminovsi/opencode-selectel-models#semver:^1.0.0",
       "options": {
         "autoRefresh": true,
         "refreshIntervalMs": 21600000
@@ -27,14 +35,25 @@
 
 Провайдеры `selectel` и `selectel-anthropic` должны быть объявлены в конфигурации. Плагин использует их активные ключи из `/connect` и не меняет подключения, адреса API или другие провайдеры. Ключи из `settings.apiKey` отдельно не читаются: используйте подключение OpenCode.
 
-Установить зависимости локального плагина:
+## Разработка
+
+Для работы с локальной копией установите зависимости и проверьте проект:
 
 ```sh
-cd ~/.config/opencode/plugins/selectel-models
-npm ci --omit=dev --ignore-scripts --legacy-peer-deps
+npm ci --ignore-scripts
+npm test
+npm run typecheck
 ```
 
-OpenCode предоставляет `@opencode/plugin` во время загрузки. Для разработки используйте обычное `npm ci --ignore-scripts`, затем `npm test` и `npm run typecheck`.
+Чтобы OpenCode загружал локальную копию вместо опубликованной, укажите путь в `opencode.json`:
+
+```jsonc
+{
+  "plugins": ["/path/to/opencode-selectel-models"]
+}
+```
+
+`@opencode/plugin` предоставляет сам OpenCode во время загрузки, поэтому в обычной установке он не нужен.
 
 ## Использование
 
@@ -70,7 +89,7 @@ opencode api post /api/rpc/selectel-models/status \
 ```jsonc
 {
   "plugins": [{
-    "package": "./plugins/selectel-models",
+    "package": "github:perminovsi/opencode-selectel-models#semver:^1.0.0",
     "options": {
       "metadataAliases": {
         "selectel/my-model": "vendor/exact-model-id"
