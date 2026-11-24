@@ -1,6 +1,6 @@
 # Selectel models for OpenCode
 
-Серверный плагин для OpenCode. Обновляет каталог моделей и цены в работающем OpenCode, сохраняя ручные настройки в `opencode.json`.
+Серверный плагин для OpenCode. Обновляет каталог моделей и цены Selectel в работающем OpenCode, сохраняя ручные настройки в `opencode.json`.
 
 Два источника:
 
