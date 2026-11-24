@@ -1,6 +1,6 @@
 {
   "name": "opencode-selectel-models",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Selectel models catalog sync plugin for OpenCode",
   "license": "MIT",
   "repository": {
@@ -26,7 +26,7 @@
     "tar-stream": "3.1.7"
   },
   "peerDependencies": {
-    "@opencode/plugin": ">=2.2.7 <3"
+    "@opencode/plugin": ">=2.2.0 <3"
   },
   "devDependencies": {
     "@opencode/plugin": "2.2.7",
