@@ -12,6 +12,8 @@ type Context = Plugin.Context;
 type Account = { key: string; fingerprint: string; connection: ConnectionInfo };
 type Snapshot = { updatedAt: number; models: RemoteModel[]; fingerprint: string };
 type Options = { refreshIntervalMs: number; autoRefresh: boolean; aliases: Record<string, string> };
+type ProviderEditor = Parameters<Parameters<Context["provider"]["transform"]>[0]>[0];
+type ProviderInfo = Parameters<ProviderEditor["add"]>[0]["info"];
 
 export function readOptions(input: Record<string, unknown>): Options {
   const refreshIntervalMs = input.refreshIntervalMs ?? 21_600_000;
@@ -50,6 +52,7 @@ export function createUpdater(
   const counts = new Map<ProviderID, number>();
   const cached = new Set<ProviderID>();
   const errors = new Map<ProviderID, string>();
+  let declared = new Map<ProviderID, ProviderInfo>();
   let metadata: MetadataIndex = Object.create(null);
   let metadataAt = 0;
   let etag: string | undefined;
@@ -94,6 +97,14 @@ export function createUpdater(
 
   function cacheKey(pid: ProviderID, fingerprint: string): string {
     return `v1/catalog/${pid}/${fingerprint}`;
+  }
+
+  // The host omits providers declared only in opencode.json from the editor, so their definitions come from the provider list.
+  async function loadDeclared(): Promise<void> {
+    try {
+      const { data } = await ctx.provider.list();
+      declared = new Map(data.flatMap((info) => PROVIDERS.includes(info.id as ProviderID) ? [[info.id as ProviderID, info as ProviderInfo] as const] : []));
+    } catch { /* Keep the previous definitions; the editor still exposes providers it knows about. */ }
   }
 
   async function syncAccounts(): Promise<void> {
@@ -175,6 +186,7 @@ export function createUpdater(
     await Promise.all([...selectel, metadataDownload]);
     await syncAccounts();
     controller.signal.throwIfAborted();
+    await loadDeclared();
     await ctx.provider.reload();
     if (errors.size) lastError = [...new Set(errors.values())].join(" ");
   }
@@ -195,19 +207,21 @@ export function createUpdater(
       etag = typeof saved.etag === "string" ? saved.etag : undefined;
     }
     await syncAccounts();
+    await loadDeclared();
     await ctx.provider.transform((editor) => {
       for (const pid of PROVIDERS) {
         const record = editor.get(pid);
+        const info = record?.provider ?? declared.get(pid);
         const snapshot = snapshots.get(pid);
         const current = connections.get(pid);
-        if (!record) continue;
+        if (!info) continue;
         if (!snapshot || !current || current.fingerprint !== snapshot.fingerprint) {
-          counts.set(pid, record.models.size);
+          counts.set(pid, record?.models.size ?? 0);
           continue;
         }
-        const models = buildInventory(pid, snapshot.models, metadata, record.models, options.aliases);
+        const models = buildInventory(pid, snapshot.models, metadata, record?.models ?? new Map(), options.aliases);
         counts.set(pid, models.length);
-        editor.add({ info: record.provider, models, sourceConnection: current.connection });
+        editor.add({ info, models, sourceConnection: current.connection });
       }
     });
     // Register immediately, then refresh in the background so network latency does not delay startup.

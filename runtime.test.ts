@@ -10,7 +10,7 @@ function fixture(id = "openai/example"): RemoteModel {
     pricing: { prompt: "0.000001", completion: "0.000002" } };
 }
 
-function context() {
+function context({ hostRecord = true }: { hostRecord?: boolean } = {}) {
   let key = "sk-test-account-a";
   let credentialID = "credential-a";
   const storage = new Map<string, unknown>();
@@ -20,7 +20,7 @@ function context() {
   let transform: ((editor: unknown) => void) | undefined;
   const reload = async () => {
     published = provider;
-    transform?.({ get: (pid: string) => pid === "selectel" ? provider : undefined, add: (entry: { info: typeof provider.provider; models: typeof originalModels extends Map<string, infer M> ? M[] : never }) => {
+    transform?.({ get: (pid: string) => pid === "selectel" && hostRecord ? provider : undefined, add: (entry: { info: typeof provider.provider; models: typeof originalModels extends Map<string, infer M> ? M[] : never }) => {
       published = { provider: entry.info, models: new Map(entry.models.map((m) => [String(m.id), m])) };
     } });
   };
@@ -31,7 +31,10 @@ function context() {
       active: async (pid: string) => pid === "selectel" ? { type: "credential", id: credentialID, method: "key", label: "Test" } : undefined,
       resolve: async () => ({ type: "key", key }),
     } },
-    provider: { reload, transform: async (callback: (editor: unknown) => void) => { transform = callback; await reload(); } },
+    provider: {
+      list: async () => ({ data: [provider.provider] }),
+      reload, transform: async (callback: (editor: unknown) => void) => { transform = callback; await reload(); },
+    },
     event: { subscribe: async function* ({ signal }: { signal: AbortSignal }) {
       await new Promise<void>((resolve) => { if (signal.aborted) resolve(); else signal.addEventListener("abort", () => resolve(), { once: true }); });
     } },
@@ -84,5 +87,18 @@ test("a changed credential cannot receive an inventory fetched for the previous 
   await pending;
   assert.deepEqual([...fake.models().keys()], ["openai/example"]);
   assert.equal([...fake.storage.keys()].some((key) => key.startsWith("v1/catalog/")), false);
+  await updater.stop();
+});
+
+test("a declared provider without a host source record still receives the inventory", async () => {
+  const fake = context({ hostRecord: false });
+  const updater = createUpdater(fake.ctx, readOptions(fake.ctx.options), {
+    selectel: async () => [fixture("openai/from-declared")],
+    metadata: async () => ({ models: {} }),
+  });
+  await updater.start();
+  const status = await updater.refresh();
+  assert.equal(status.providers.selectel.models, 1);
+  assert.deepEqual([...fake.models().keys()], ["openai/from-declared"]);
   await updater.stop();
 });
