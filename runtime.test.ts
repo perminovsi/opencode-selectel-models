@@ -10,36 +10,48 @@ function fixture(id = "openai/example"): RemoteModel {
     pricing: { prompt: "0.000001", completion: "0.000002" } };
 }
 
-function context({ hostRecord = true }: { hostRecord?: boolean } = {}) {
+function context({ hostRecord = true, declared = true }: { hostRecord?: boolean; declared?: boolean } = {}) {
   let key = "sk-test-account-a";
   let credentialID = "credential-a";
   const storage = new Map<string, unknown>();
   const originalModels = new Map(buildInventory("selectel", [fixture()], {}, new Map()).map((m) => [String(m.id), m]));
   const provider = { provider: { id: "selectel", name: "Selectel", package: "@opencode/ai/providers/openai-compatible", activation: "enabled" }, models: originalModels };
-  let published = provider;
+  const published = new Map<string, { provider: Record<string, unknown>; models: Map<string, unknown> }>();
+  const integrationMethods: unknown[] = [];
   let transform: ((editor: unknown) => void) | undefined;
   const reload = async () => {
-    published = provider;
-    transform?.({ get: (pid: string) => pid === "selectel" && hostRecord ? provider : undefined, add: (entry: { info: typeof provider.provider; models: typeof originalModels extends Map<string, infer M> ? M[] : never }) => {
-      published = { provider: entry.info, models: new Map(entry.models.map((m) => [String(m.id), m])) };
+    published.clear();
+    if (hostRecord) published.set("selectel", provider);
+    transform?.({ get: (pid: string) => pid === "selectel" && hostRecord ? provider : undefined, add: (entry: { info: { id: string }; models: { id: unknown }[] }) => {
+      published.set(entry.info.id, { provider: entry.info, models: new Map(entry.models.map((m) => [String(m.id), m])) });
     } });
   };
   const ctx = {
     options: { autoRefresh: false },
     storage: { get: async (id: string) => storage.get(id), set: async (id: string, value: unknown) => { storage.set(id, structuredClone(value)); } },
-    integration: { connection: {
-      active: async (pid: string) => pid === "selectel" ? { type: "credential", id: credentialID, method: "key", label: "Test" } : undefined,
-      resolve: async () => ({ type: "key", key }),
-    } },
+    integration: {
+      transform: async (callback: (editor: unknown) => void) => {
+        callback({ get: () => undefined, update: () => {}, method: { update: (input: unknown) => { integrationMethods.push(input); } } });
+      },
+      connection: {
+        active: async (id: string) => id === "selectel" ? { type: "credential", id: credentialID, method: "key", label: "Test" } : undefined,
+        resolve: async () => ({ type: "key", key }),
+      },
+    },
     provider: {
-      list: async () => ({ data: [provider.provider] }),
+      list: async () => ({ data: declared ? [provider.provider] : [] }),
       reload, transform: async (callback: (editor: unknown) => void) => { transform = callback; await reload(); },
     },
     event: { subscribe: async function* ({ signal }: { signal: AbortSignal }) {
       await new Promise<void>((resolve) => { if (signal.aborted) resolve(); else signal.addEventListener("abort", () => resolve(), { once: true }); });
     } },
   } as unknown as Plugin.Context;
-  return { ctx, storage, models: () => published.models, switchAccount: () => { key = "sk-test-account-b"; credentialID = "credential-b"; } };
+  return {
+    ctx, storage, integrationMethods,
+    models: (pid = "selectel") => published.get(pid)?.models ?? new Map<string, unknown>(),
+    info: (pid = "selectel") => published.get(pid)?.provider,
+    switchAccount: () => { key = "sk-test-account-b"; credentialID = "credential-b"; },
+  };
 }
 
 test("failed refresh retains the last successful prices and reasoning; restarts use the cache", async () => {
@@ -54,7 +66,7 @@ test("failed refresh retains the last successful prices and reasoning; restarts 
   const first = await updater.refresh();
   assert.equal(first.providers.selectel.models, 1);
   assert.deepEqual([...fake.models().keys()], ["openai/new"]);
-  assert.deepEqual(fake.models().get("openai/new")?.variants.map((v) => v.id), ["high"]);
+  assert.deepEqual((fake.models().get("openai/new") as { variants: { id: string }[] }).variants.map((v) => v.id), ["high"]);
   fail = true;
   const failed = await updater.refresh();
   assert.deepEqual([...fake.models().keys()], ["openai/new"]);
@@ -100,5 +112,36 @@ test("a declared provider without a host source record still receives the invent
   const status = await updater.refresh();
   assert.equal(status.providers.selectel.models, 1);
   assert.deepEqual([...fake.models().keys()], ["openai/from-declared"]);
+  await updater.stop();
+});
+
+test("the plugin registers one Selectel key integration for /connect", async () => {
+  const fake = context();
+  const updater = createUpdater(fake.ctx, readOptions(fake.ctx.options), {
+    selectel: async () => [fixture()],
+    metadata: async () => ({ models: {} }),
+  });
+  await updater.start();
+  assert.deepEqual(fake.integrationMethods, [{ integrationID: "selectel", method: { type: "key", label: "Selectel API key", form: [{ key: "key", title: "API key", type: "string", required: true }] } }]);
+  await updater.stop();
+});
+
+test("providers missing from opencode.json are registered by the plugin", async () => {
+  const fake = context({ hostRecord: false, declared: false });
+  const updater = createUpdater(fake.ctx, readOptions(fake.ctx.options), {
+    selectel: async () => [fixture("openai/from-builtin"), fixture("anthropic/claude-builtin")],
+    metadata: async () => ({ models: {} }),
+  });
+  await updater.start();
+  const status = await updater.refresh();
+  assert.equal(status.providers.selectel.models, 1);
+  assert.equal(status.providers["selectel-anthropic"].models, 1);
+  assert.deepEqual([...fake.models().keys()], ["openai/from-builtin"]);
+  assert.deepEqual([...fake.models("selectel-anthropic").keys()], ["claude-builtin"]);
+  assert.deepEqual(fake.info(), {
+    id: "selectel", name: "Selectel", package: "@opencode/ai/providers/openai-compatible", activation: "auto",
+    integrationID: "selectel", settings: { baseURL: "https://api.selectel.ru/aig/v1" },
+  });
+  assert.equal(fake.info("selectel-anthropic")?.package, "@opencode/ai/providers/anthropic-compatible");
   await updater.stop();
 });

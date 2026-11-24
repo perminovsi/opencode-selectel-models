@@ -10,26 +10,8 @@
 ## Требования
 
 - OpenCode 2.2 или новее. Проверен на SDK `@opencode/plugin` 2.2.0–2.4.1; версии 2.0 и 2.1 не поддерживаются.
-- Провайдеры `selectel` и `selectel-anthropic` объявлены в `opencode.json`. ID провайдеров фиксированы, переименовать их нельзя:
-
-```jsonc
-{
-  "providers": {
-    "selectel": {
-      "package": "@opencode/ai/providers/openai-compatible",
-      "name": "Selectel",
-      "settings": { "baseURL": "https://api.selectel.ru/aig/v1" }
-    },
-    "selectel-anthropic": {
-      "package": "@opencode/ai/providers/anthropic-compatible",
-      "name": "Selectel — Anthropic",
-      "settings": { "baseURL": "https://api.selectel.ru/aig/v1" }
-    }
-  }
-}
-```
-
-- Для каждого провайдера выполнена команда `/connect` с API-ключом Selectel. Ключи из `settings.apiKey` плагин не читает. Без подключения провайдер пропускается, и статус показывает подсказку `/connect`.
+- Провайдеры `selectel` и `selectel-anthropic` плагин регистрирует сам, вручную добавлять их в `opencode.json` не нужно. ID фиксированы. Если провайдер всё же объявлен в `opencode.json`, плагин использует это объявление.
+- Один раз выполните `/connect` для Selectel и укажите API-ключ. Ключ используется обоими провайдерами. Ключи из `settings.apiKey` плагин не читает. Без подключения провайдеры не появляются в списке, а статус показывает подсказку `/connect`.
 - Доступ в интернет к `api.selectel.ru` и `codeload.github.com` (для метаданных models.dev).
 
 ## Установка
@@ -39,6 +21,8 @@ opencode plugin add "github:perminovsi/opencode-selectel-models#semver:^1.0.0"
 ```
 
 Команда добавляет плагин в глобальный `~/.config/opencode/opencode.json`. Диапазон `semver:^1.0.0` означает, что OpenCode сам проверяет обновления при старте и раз в 24 часа и ставит новые версии 1.x. Проверить и обновить вручную можно командами `opencode plugin check` и `opencode plugin update`.
+
+После установки выполните `/connect`, выберите Selectel и введите API-ключ. Модели появятся после первой синхронизации.
 
 OpenCode автоматически передаёт TUI-часть подключённого плагина в CLI; отдельная запись в `cli.json` не требуется.
 
@@ -58,7 +42,7 @@ OpenCode автоматически передаёт TUI-часть подклю
 }
 ```
 
-Провайдеры `selectel` и `selectel-anthropic` должны быть объявлены в конфигурации. Плагин использует их активные ключи из `/connect` и не меняет подключения, адреса API или другие провайдеры. Ключи из `settings.apiKey` отдельно не читаются: используйте подключение OpenCode.
+Провайдеры `selectel` и `selectel-anthropic` плагин создаёт сам. Плагин использует ключ из `/connect` для Selectel и не меняет другие провайдеры или их подключения. Ключи из `settings.apiKey` отдельно не читаются: используйте подключение OpenCode.
 
 ## Разработка
 

@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import type { Plugin } from "@opencode/plugin";
 import type { ConnectionInfo } from "@opencode/client";
 import {
-  PROVIDERS, buildInventory, findMetadata, mergeMetadata, parseCatalog, record,
+  API_BASE_URL, INTEGRATION_ID, PROVIDERS, PROVIDER_DEFAULTS, buildInventory, findMetadata, mergeMetadata, parseCatalog, record,
   type MetadataIndex, type ProviderID, type RemoteModel,
 } from "./catalog.ts";
 import { fetchMetadata, fetchSelectel } from "./sources.ts";
@@ -28,6 +28,18 @@ export function readOptions(input: Record<string, unknown>): Options {
     throw new Error("selectel-models: metadataAliases must map Selectel IDs to OpenRouter IDs.");
   }
   return { refreshIntervalMs: Number(refreshIntervalMs), autoRefresh: input.autoRefresh !== false, aliases: aliases as Record<string, string> };
+}
+
+/** Provider definition for a plugin-owned provider that opencode.json does not declare. */
+function defaultInfo(pid: ProviderID): ProviderInfo {
+  return {
+    id: pid as ProviderInfo["id"],
+    name: PROVIDER_DEFAULTS[pid].name,
+    package: PROVIDER_DEFAULTS[pid].package,
+    activation: "auto",
+    integrationID: INTEGRATION_ID as NonNullable<ProviderInfo["integrationID"]>,
+    settings: { baseURL: API_BASE_URL },
+  };
 }
 
 function safeError(error: unknown): string {
@@ -85,7 +97,7 @@ export function createUpdater(
   });
 
   async function account(pid: ProviderID): Promise<Account | undefined> {
-    const connection = await ctx.integration.connection.active(pid);
+    const connection = await ctx.integration.connection.active(INTEGRATION_ID);
     if (!connection) return;
     const credential = await ctx.integration.connection.resolve(connection);
     if (credential?.type !== "key" || !credential.key) return;
@@ -112,7 +124,7 @@ export function createUpdater(
     for (const pid of PROVIDERS) {
       const current = await account(pid);
       const prior = connections.get(pid);
-      if (!current) errors.set(pid, `Connect ${pid} with an API key using /connect.`);
+      if (!current) errors.set(pid, "Connect Selectel with an API key using /connect.");
       if (sameAccount(prior, current)) continue;
       connections.delete(pid);
       snapshots.delete(pid);
@@ -206,15 +218,26 @@ export function createUpdater(
       metadataAt = Number(saved.updatedAt);
       etag = typeof saved.etag === "string" ? saved.etag : undefined;
     }
+    // One key entry in /connect serves both providers.
+    await ctx.integration.transform((editor) => {
+      // The display name is cosmetic: a host that rejects updates to an unknown integration must not block the key method.
+      try {
+        editor.update(INTEGRATION_ID, (integration) => { integration.name = "Selectel"; });
+      } catch { /* Keep the host's default name. */ }
+      editor.method.update({
+        integrationID: INTEGRATION_ID,
+        method: { type: "key", label: "Selectel API key", form: [{ key: "key", title: "API key", type: "string", required: true }] },
+      });
+    });
     await syncAccounts();
     await loadDeclared();
     await ctx.provider.transform((editor) => {
       for (const pid of PROVIDERS) {
         const record = editor.get(pid);
-        const info = record?.provider ?? declared.get(pid);
+        // Declared providers keep their opencode.json settings; undeclared ones come from the plugin.
+        const info = record?.provider ?? declared.get(pid) ?? defaultInfo(pid);
         const snapshot = snapshots.get(pid);
         const current = connections.get(pid);
-        if (!info) continue;
         if (!snapshot || !current || current.fingerprint !== snapshot.fingerprint) {
           counts.set(pid, record?.models.size ?? 0);
           continue;

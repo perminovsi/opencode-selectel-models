@@ -4,6 +4,14 @@ export const SELECTEL_URL = "https://api.selectel.ru/aig/v1/models";
 export const MODELS_DEV_URL = "https://codeload.github.com/anomalyco/models.dev/tar.gz/refs/heads/dev";
 export const PROVIDERS = ["selectel", "selectel-anthropic"] as const;
 export type ProviderID = typeof PROVIDERS[number];
+/** One key in `/connect` serves both providers. */
+export const INTEGRATION_ID = "selectel";
+export const API_BASE_URL = "https://api.selectel.ru/aig/v1";
+/** Used when opencode.json does not declare the provider; the plugin registers it itself. */
+export const PROVIDER_DEFAULTS: Record<ProviderID, { name: string; package: string }> = {
+  selectel: { name: "Selectel", package: "@opencode/ai/providers/openai-compatible" },
+  "selectel-anthropic": { name: "Selectel — Anthropic", package: "@opencode/ai/providers/anthropic-compatible" },
+};
 
 export type Reasoning = {
   supported: boolean;
