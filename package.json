@@ -1,0 +1,28 @@
+{
+  "name": "opencode-selectel-models",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./server.ts",
+    "./tui": "./tui.ts",
+    "./rpc": "./rpc.ts"
+  },
+  "scripts": {
+    "test": "node --experimental-strip-types --test *.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "smol-toml": "1.9.1",
+    "tar-stream": "3.1.7"
+  },
+  "peerDependencies": {
+    "@opencode/plugin": ">=2.2.7 <3"
+  },
+  "devDependencies": {
+    "@opencode/plugin": "2.2.7",
+    "@types/node": "^24.0.0",
+    "@types/tar-stream": "^3.1.4",
+    "typescript": "^5.9.3"
+  }
+}
